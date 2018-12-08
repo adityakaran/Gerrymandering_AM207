@@ -5,7 +5,7 @@ Created on Sat Dec  1 21:53:19 2018
 @author: Aditya
 """
 from gerrychain import Graph, Partition, GeographicPartition
-from gerrychain.updaters import Tally,county_splits
+from gerrychain.updaters import Tally, county_splits, boundary_nodes, cut_edges, cut_edges_by_part, exterior_boundaries, interior_boundaries, perimeter
 import os
 
 from gerrychain import MarkovChain
@@ -38,6 +38,13 @@ def run_simple(graph):
             updaters={
                 "2016_President": election,
                 "population": Tally("TOT_POP", alias="population"), 
+                "perimeter": perimeter,
+                "exterior_boundaries": exterior_boundaries,
+                "interior_boundaries": interior_boundaries,
+                "boundary_nodes": boundary_nodes,
+                "cut_edges": cut_edges,
+                "area": Tally("area", alias="area"),
+                "cut_edges_by_part": cut_edges_by_part
             }
         )
         
@@ -50,7 +57,7 @@ def run_simple(graph):
         is_valid=single_flip_contiguous,
         accept=always_accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
         initial_state=initial_partition,
-        total_steps=100
+        total_steps=10
     )
     
     for partition in chain:
@@ -79,7 +86,6 @@ p2 = Partition(
             "county_split" : county_splits( 'HI', "COUNTYFP10"),
         }
     )
-
 
 def vra_district_requirement(partition, num_districts, thresholds):
     if(len(thresholds) != num_districts):
@@ -113,6 +119,34 @@ def score_partition(partition, wp, ws):
     return(equal_split_score(partition) * wp + county_split_wrapper(partition) * ws)
     
     
+def isoparametric(area, perimeter):
+    try:
+        return perimeter**2/area
+    except ZeroDivisionError:
+        return np.nan
+
+def polsby_popper(area, perimeter):
+    try:
+        return 4*np.pi*area / perimeter**2
+    except ZeroDivisionError:
+        return np.nan
+
+def compact_dispersion(area, perimeter):
+    raise NotImplementedError
+
+def compactness_split_score(partition):
+    isoparametric_parts = []
+    #polsby_popper_parts = []
+    #dispersion_parts = []
+    for part in partition.parts:
+        area, perimeter = partition['area'][part], partition['perimeter'][part]
+        isoparametric_parts.append(isoparametric(area, perimeter))
+        #polsby_popper_parts.append(polsby_popper(area, perimeter))
+        #dispersion_parts.append()
+    return np.sum(np.array(isoparametric_parts))
+    #return np.array(polsby_popper_parts)
+    #return np.array(dispersion_parts)
+
 def equal_split_score(partition, population_name = 'population'):
     '''Take a partition and compute the root mean square deviance from a perfect equal split'''
     deviations = deviation_from_ideal(partition, population_name)
@@ -172,3 +206,7 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
     if(final_score < 0):
         raise Exception("FInal weight should be less than 0")
     return(final_score)
+
+if __name__ == "__main__":
+    graph = generate_graph('PA_VTD.shp')
+    run_simple(graph)
