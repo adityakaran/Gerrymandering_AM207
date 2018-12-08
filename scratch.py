@@ -84,39 +84,54 @@ p2 = Partition(
             "population": Tally("TOT_POP", alias="population"), 
             "black_population": Tally("BLACK_POP", alias = "black_population"),
             "county_split" : county_splits( 'HI', "COUNTYFP10"),
+                            "perimeter": perimeter,
+                "exterior_boundaries": exterior_boundaries,
+                "interior_boundaries": interior_boundaries,
+                "boundary_nodes": boundary_nodes,
+                "cut_edges": cut_edges,
+                "area": Tally("area", alias="area"),
+                "cut_edges_by_part": cut_edges_by_part
+
         }
     )
 
-def vra_district_requirement(partition, num_districts, thresholds):
-    if(len(thresholds) != num_districts):
-        raise Exception("Number of thresholds needs to equal the number of districts you want")
-    black_pop_dict = partition['black_population']
-    total_dict = partition['population']
-    fractions = Counter({k : black_pop_dict[k] / total_dict[k] for k in total_dict})
-    top_n = fractions.most_common(num_districts)
-    thresholds.sort()
-    score = 0
-    for i in range(0, top_n):
-        #Get the max thresholds
-        temp_score = max(0, thresholds[i] - top_n[i][1])
-        score += np.sqrt(temp_score)
-    return(score)
-    
-    
-def metro_scoring_prob(partition, beta, wp, ws):
+
+def metro_scoring_prob(partition, beta, wp, wi, wc, wm):
     if(partition.parent == None):
         return True
     conflictedp = len(partition['cut_edges'])
     conflicted = conflictedp
     conflicted = len(partition.parent['cut_edges'])
     ratio = conflicted/conflictedp
-    exp = np.exp(-beta * (score_partition(partition, wp, ws) - score_partition(partition.parent, wp, ws)))
+    curr_score = score_partition(partition, wp, wi, wc, wm)
+    prev_score = score_partition(partition.parent, wp, wi, wc, wm)
+    exp = np.exp(-beta * (curr_score - prev_score))
     prob = min(1, ratio * exp)
     return(prob > random.random())
     
     
-def score_partition(partition, wp, ws):
-    return(equal_split_score(partition) * wp + county_split_wrapper(partition) * ws)
+def score_partition(partition, wp, wi, wc, wm):
+    return(equal_split_score(partition) * wp + compactness_split_score(partition) + 
+           county_split_wrapper(partition) * wc + vra_district_requirement(partition) * wm)
+
+def vra_district_requirement(partition, num_districts = 2, thresholds = [0.445, 0.36]):
+    if(len(thresholds) != num_districts):
+        raise Exception("Number of thresholds needs to equal the number of districts you want")
+    black_pop_dict = partition['black_population']
+    total_dict = partition['population']
+    fractions = Counter({k : black_pop_dict[k] / total_dict[k] for k in total_dict})
+    print(fractions)
+    top_n = fractions.most_common(num_districts)
+    thresholds.sort()
+    print(top_n)
+    score = 0
+    for i in range(0, num_districts):
+        #Get the max thresholds
+        temp_score = max(0, thresholds[i] - top_n[i][1])
+        score += np.sqrt(temp_score)
+    return(score)
+    
+    
     
     
 def isoparametric(area, perimeter):
