@@ -14,6 +14,7 @@ from gerrychain.proposals import propose_random_flip
 from gerrychain.accept import always_accept
 import gerrychain.scores
 from gerrychain import Election
+from gerrychain.constraints.validity import deviation_from_ideal
 
 from collections import Counter
 import numpy as np
@@ -77,6 +78,13 @@ def run_simple(graph):
 #        }
 #    )
 
+def equal_split_score(partition, population_name = 'population'):
+    '''Take a partition and compute the root mean square deviance from a perfect equal split'''
+    deviations = deviation_from_ideal(partition, population_name)
+    score = np.linalg.norm(list(deviations.values()))
+    return(score)
+    
+    
 def county_split_wrapper(partition, county_split_name = 'county _split', district_name = 'district_name'):
     splits = county_split_score(partition, county_split_name)
     score = compute_countySplitWeight(partition, splits, county_split_name, district_name)
