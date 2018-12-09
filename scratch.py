@@ -46,6 +46,7 @@ def run_simple(graph):
                 "area": Tally("area", alias="area"),
                 "cut_edges_by_part": cut_edges_by_part, 
                 "county_split" : county_splits( 'county_split', "COUNTYFP10"),
+                "black_population": Tally("BLACK_POP", alias = "black_population"),
             
             }
         )
@@ -59,7 +60,7 @@ def run_simple(graph):
         is_valid=single_flip_contiguous,
         accept=always_accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
         initial_state=initial_partition,
-        total_steps=10
+        total_steps=1000
     )
     
     for partition in chain:
@@ -115,10 +116,8 @@ def vra_district_requirement(partition, num_districts = 2, thresholds = [0.445, 
     black_pop_dict = partition['black_population']
     total_dict = partition['population']
     fractions = Counter({k : black_pop_dict[k] / total_dict[k] for k in total_dict})
-    print(fractions)
     top_n = fractions.most_common(num_districts)
     thresholds.sort()
-    print(top_n)
     score = 0
     for i in range(0, num_districts):
         #Get the max thresholds
@@ -164,7 +163,7 @@ def equal_split_score(partition, population_name = 'population'):
     return(score)
     
     
-def county_split_wrapper(partition, county_split_name = 'county_split', district_name = '2011_PLA_1'):
+def county_split_wrapper(partition, county_split_name = 'county_split', district_name = 'county_split'):
     splits = county_split_score(partition, county_split_name)
     score = compute_countySplitWeight(partition, splits, county_split_name, district_name)
     return(score)
@@ -180,16 +179,17 @@ def county_split_score(partition, county_split_name = 'county_split'):
             to_check[num_split] = prev
     return(to_check)
 
-def compute_countySplitWeight(partition, info, county_split_name = 'county_split', district_name = "2011_PLA_1"):
+def compute_countySplitWeight(partition, info, county_split_name = 'county_split', district_name = "county_split"):
     '''Compute the county score function as described by the paper
     Takes in a parition with a county score_split data and computes the final 
     score'''
     two_counties = info[2]
+    print(two_counties)
     two_county_weight_sum = 0
     '''FIxme - should really combine both parts'''
     for c in two_counties:        
         nodes = partition[county_split_name][c][1]
-        counties = [partition.graph.nodes[n][district_name] for n in nodes]
+        counties = [partition.assignment[n] for n in nodes]
         cn = Counter(counties)
         second_frac = cn.most_common(2)[1][1]/ sum(cn.values())
         two_county_weight_sum += np.sqrt(second_frac)
@@ -199,7 +199,7 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
         counties_split_list = info[count_counties]
         for c in counties_split_list:
             nodes = partition[county_split_name][c][1]
-            counties = [partition.graph.nodes[n][district_name] for n in nodes]
+            counties = [partition.assignment[n] for n in nodes]
             cn = Counter(counties)
             temp_frac = 0
             lst = cn.most_common()
@@ -216,7 +216,7 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
     if(final_score < 0):
         raise Exception("FInal weight should be less than 0")
     return(final_score)
-
-if __name__ == "__main__":
-    graph = generate_graph(os.path.join("PA_VTD", 'PA_VTD.shp'))
-    run_simple(graph)
+#
+#if __name__ == "__main__":
+#    graph = generate_graph(os.path.join("PA_VTD", 'PA_VTD.shp'))
+#    run_simple(graph)
