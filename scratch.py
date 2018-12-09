@@ -44,7 +44,9 @@ def run_simple(graph):
                 "boundary_nodes": boundary_nodes,
                 "cut_edges": cut_edges,
                 "area": Tally("area", alias="area"),
-                "cut_edges_by_part": cut_edges_by_part
+                "cut_edges_by_part": cut_edges_by_part, 
+                "county_split" : county_splits( 'county_split', "COUNTYFP10"),
+            
             }
         )
         
@@ -68,32 +70,25 @@ def run_simple(graph):
     
    
 
-#
-#filename = "PA_VTD.shp"
-#direc = "PA_VTD"
-#fullpath = os.path.join(direc, filename)
-#graph = Graph.from_file(fullpath)
-#run_simple(graph)
-#
-#
-p2 = Partition(
-        graph,
-        assignment="2011_PLA_1",
-        updaters={
-            "2016_President": election,
-            "population": Tally("TOT_POP", alias="population"), 
-            "black_population": Tally("BLACK_POP", alias = "black_population"),
-            "county_split" : county_splits( 'HI', "COUNTYFP10"),
-                            "perimeter": perimeter,
-                "exterior_boundaries": exterior_boundaries,
-                "interior_boundaries": interior_boundaries,
-                "boundary_nodes": boundary_nodes,
-                "cut_edges": cut_edges,
-                "area": Tally("area", alias="area"),
-                "cut_edges_by_part": cut_edges_by_part
 
-        }
-    )
+#p2 = Partition(
+#        graph,
+#        assignment="2011_PLA_1",
+#        updaters={
+#            "2016_President": election,
+#            "population": Tally("TOT_POP", alias="population"), 
+#            "black_population": Tally("BLACK_POP", alias = "black_population"),
+#            "county_split" : county_splits( 'HI', "COUNTYFP10"),
+#                            "perimeter": perimeter,
+#                "exterior_boundaries": exterior_boundaries,
+#                "interior_boundaries": interior_boundaries,
+#                "boundary_nodes": boundary_nodes,
+#                "cut_edges": cut_edges,
+#                "area": Tally("area", alias="area"),
+#                "cut_edges_by_part": cut_edges_by_part
+#
+#        }
+#    )
 
 
 def metro_scoring_prob(partition, beta, wp, wi, wc, wm):
@@ -223,5 +218,5 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
     return(final_score)
 
 if __name__ == "__main__":
-    graph = generate_graph('PA_VTD.shp')
+    graph = generate_graph(os.path.join("PA_VTD", 'PA_VTD.shp'))
     run_simple(graph)
