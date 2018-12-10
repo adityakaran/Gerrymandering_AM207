@@ -9,16 +9,17 @@ from gerrychain.updaters import Tally, county_splits, boundary_nodes, cut_edges,
 import os
 
 from gerrychain import MarkovChain
-from gerrychain.constraints import single_flip_contiguous, no_worse_L1_reciprocal_polsby_popper
+from gerrychain.constraints import single_flip_contiguous, no_worse_L1_reciprocal_polsby_popper, districts_within_tolerance
 from gerrychain.proposals import propose_random_flip
 from gerrychain.accept import always_accept
 import gerrychain.scores
 from gerrychain import Election
 from gerrychain.constraints.validity import deviation_from_ideal
-
+from gerrychain.constraints import Validator
 from collections import Counter
 import numpy as np
 import random
+
 
 def generate_graph(path):
     return Graph.from_file(path)
@@ -54,18 +55,22 @@ def run_simple(graph):
     
     efficiency_gaps = []
     wins = []
+   # count = 0
     
+    is_valid = Validator([single_flip_contiguous, districts_within_tolerance ])
     chain = MarkovChain(
         proposal=propose_random_flip,
-        is_valid=single_flip_contiguous,
+        is_valid=is_valid,
         accept=always_accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
         initial_state=initial_partition,
         total_steps=1000
     )
     
     for partition in chain:
-        efficiency_gaps.append(gerrychain.scores.efficiency_gap(partition["2016_President"]))
-        wins.append(partition["2016_President"].wins("Democratic"))
+        if(hasattr(partition, 'accepted') and partition.accepted):
+            efficiency_gaps.append(gerrychain.scores.efficiency_gap(partition["2016_President"]))
+            wins.append(partition["2016_President"].wins("Democratic"))
+    return(efficiency_gaps, wins, partition)
     
     
     
@@ -184,7 +189,6 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
     Takes in a parition with a county score_split data and computes the final 
     score'''
     two_counties = info[2]
-    print(two_counties)
     two_county_weight_sum = 0
     '''FIxme - should really combine both parts'''
     for c in two_counties:        
@@ -195,7 +199,9 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
         two_county_weight_sum += np.sqrt(second_frac)
     
     three_plus_weight_sum = 0
-    for count_counties in range(3, len(info) +1):
+    to_consider = list(info.keys())
+    to_consider.remove(2)
+    for count_counties in to_consider:
         counties_split_list = info[count_counties]
         for c in counties_split_list:
             nodes = partition[county_split_name][c][1]
@@ -212,7 +218,8 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
     num_2 = len(two_counties)
     flat_list = [item for sublist in list(info.values()) for item in sublist]
     num_3plus = len(flat_list) - num_2
-    final_score = two_county_weight_sum * num_2 + num_3plus * three_plus_weight_sum * 1000
+    # Says to use large number for three_plus_weight...
+    final_score = two_county_weight_sum * num_2 + num_3plus * three_plus_weight_sum * 100
     if(final_score < 0):
         raise Exception("FInal weight should be less than 0")
     return(final_score)
