@@ -19,7 +19,8 @@ from gerrychain.constraints import Validator
 from collections import Counter
 import numpy as np
 import random
-
+from descartes import PolygonPatch
+import matplotlib.pyplot as plt
 
 def generate_graph(path):
     return Graph.from_file(path)
@@ -55,13 +56,20 @@ def run_simple(graph):
     
     efficiency_gaps = []
     wins = []
-   # count = 0
-    
+#    beta = 1
+#    wp = 1
+#    wi = 1
+#    wc = 0
+#    wm = 1
+#    def accept(partition):
+#       return(metro_scoring_prob(partition, beta, wp, wi, wc, wm))
+#   
     is_valid = Validator([single_flip_contiguous, districts_within_tolerance ])
     chain = MarkovChain(
         proposal=propose_random_flip,
         is_valid=is_valid,
-        accept=always_accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
+        accept = always_accept,
+       # accept=accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
         initial_state=initial_partition,
         total_steps=1000
     )
@@ -223,6 +231,32 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
     if(final_score < 0):
         raise Exception("FInal weight should be less than 0")
     return(final_score)
+
+def plot_state(partition):
+    plt.figure()
+    ax = plt.axes()
+    colors = get_spaced_colors(len(partition.parts))
+    nodes = partition.graph.nodes
+    for n in nodes:
+        data = partition.graph.nodes[n]
+        poly = data['geometry']
+        patch = PolygonPatch(poly, facecolor = colors[partition.assignment[n] - 1])
+        ax.add_patch(patch)
+        
+    plt.xlim(-80.6, -74.5) #repsent longtitude
+    plt.ylim(39, 42.5) # represent  lattitude
+
+    plt.show()
+        
+    
+def get_spaced_colors(n):
+    '''from quora https://www.quora.com/How-do-I-generate-n-visually-distinct-RGB-colours-in-Python'''
+    max_value = 16581375 #255**3
+    interval = int(max_value / n)
+    colors = [hex(I)[2:].zfill(6) for I in range(0, max_value, interval)]
+    
+    return [(int(i[:2], 16)/256., int(i[2:4], 16)/256., int(i[4:], 16)/256.) for i in colors]
+
 #
 #if __name__ == "__main__":
 #    graph = generate_graph(os.path.join("PA_VTD", 'PA_VTD.shp'))
