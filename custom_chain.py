@@ -84,7 +84,9 @@ class CustomMarkovChain:
                         self.state = proposed_next_state
                     self.counter += 1
                     # Yield the proposed state, even if not accepted
-                    print('current conversion rate: {}'.format(self.counter/self.true_counter))
+                    if self.true_counter % (int(self.total_steps/20.)) == 0:
+                        print('current conversion rate: {}.'.format(self.counter/self.true_counter))
+                        print('drew {} samples of requested {}.'.format(self.counter, self.total_steps))
                     return proposed_next_state
         raise StopIteration
 
