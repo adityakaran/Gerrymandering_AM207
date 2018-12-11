@@ -56,22 +56,22 @@ def run_simple(graph):
     
     efficiency_gaps = []
     wins = []
-#    beta = 1
-#    wp = 1
-#    wi = 1
-#    wc = 0
-#    wm = 1
-#    def accept(partition):
-#       return(metro_scoring_prob(partition, beta, wp, wi, wc, wm))
-#   
+    beta = 0
+    wp = 1
+    wi = 1
+    wc = 0
+    wm = 1
+    def accept(partition):
+       return(metro_scoring_prob(partition, beta, wp, wi, wc, wm))
+   
     is_valid = Validator([single_flip_contiguous, districts_within_tolerance ])
     chain = MarkovChain(
         proposal=propose_random_flip,
         is_valid=is_valid,
-        accept = always_accept,
-       # accept=accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
+        #accept = always_accept,
+        accept=accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
         initial_state=initial_partition,
-        total_steps=1000
+        total_steps=30
     )
     
     for partition in chain:
@@ -235,6 +235,8 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
 def plot_state(partition):
     plt.figure()
     ax = plt.axes()
+    b = (float('inf'), float('inf'), float('-inf'), float('-inf'))
+
     colors = get_spaced_colors(len(partition.parts))
     nodes = partition.graph.nodes
     for n in nodes:
@@ -242,9 +244,11 @@ def plot_state(partition):
         poly = data['geometry']
         patch = PolygonPatch(poly, facecolor = colors[partition.assignment[n] - 1])
         ax.add_patch(patch)
+        b= get_bounds(poly,b )
+
         
-    plt.xlim(-80.6, -74.5) #repsent longtitude
-    plt.ylim(39, 42.5) # represent  lattitude
+    plt.xlim(b[0], b[2]) #repsent longtitude
+    plt.ylim(b[1], b[3]) # represent  lattitude
 
     plt.show()
         
@@ -256,6 +260,95 @@ def get_spaced_colors(n):
     colors = [hex(I)[2:].zfill(6) for I in range(0, max_value, interval)]
     
     return [(int(i[:2], 16)/256., int(i[2:4], 16)/256., int(i[4:], 16)/256.) for i in colors]
+
+def plot_graph(graph):
+    plt.figure()
+    ax = plt.axes()
+    #colors = get_spaced_colors(len(partition.parts))
+    b = (float('inf'), float('inf'), float('-inf'), float('-inf'))
+    nodes = graph.nodes
+    for n in nodes:
+        data = graph.nodes[n]
+        poly = data['geometry']
+        patch = PolygonPatch(poly)
+        ax.add_patch(patch)
+        b= get_bounds(poly,b )
+    plt.xlim(b[0], b[2]) #repsent longtitude
+    plt.ylim(b[1], b[3]) # represent  lattitude
+
+    plt.show()
+
+def get_bounds(d, orig):
+    (minx, miny, maxx, maxy) = orig
+    bounds = d.bounds
+    minx = min(bounds[0], minx)
+    miny = min(bounds[1], miny)
+    maxx = max(bounds[2], maxx)
+    maxy = max(bounds[3], maxy)
+    return(minx, miny, maxx, maxy)
+
+def run_simple2(graph):
+    election = Election(
+        "2014 Senate",
+        {"Democratic": "sen_blue", "Republican": "sen_red"},
+        alias="2014_Senate"
+    )
+    
+    
+    initial_partition = Partition(
+            graph,
+            assignment="con_distri",
+            updaters={
+                "2014_Senate": election,
+                "population": Tally("population", alias="population"), 
+                "exterior_boundaries": exterior_boundaries,
+                "interior_boundaries": interior_boundaries,
+                "perimeter": perimeter,
+                "boundary_nodes": boundary_nodes,
+               "cut_edges": cut_edges,
+                "area": Tally("area", alias="area"),
+               "cut_edges_by_part": cut_edges_by_part, 
+                "county_split" : county_splits( 'county_split', "COUNTY_ID"),
+                "black_population": Tally("black_pop", alias = "black_population"),
+            
+            }
+        )
+    districts_within_tolerance_2 = lambda part : districts_within_tolerance(part, 'population', 0.3)
+    is_valid = Validator([single_flip_contiguous, districts_within_tolerance_2 ])
+
+    chain = MarkovChain(
+        proposal=propose_random_flip,
+        is_valid=is_valid,
+        accept = always_accept,
+   #     accept=accept, #THe acceptance criteria is what needs to be defined ourselves - to match the paper
+        initial_state=initial_partition,
+        total_steps=30,
+    )
+    efficiency_gaps = []
+    wins = []
+
+    for partition in chain:
+        if(hasattr(partition, 'accepted') and partition.accepted):
+            efficiency_gaps.append(gerrychain.scores.efficiency_gap(partition["2014_Senate"]))
+            wins.append(partition["2014_Senate"].wins("Democratic"))
+
+    return(efficiency_gaps, wins, partition)
+
+graph = generate_graph(os.path.join("test_file", "test_file.shp"))
+
+print(graph.nodes[2293]['con_distri'] )
+print(graph.nodes[2349]['con_distri'] )
+
+#Think the data has some error because of how close the stuff is, makes it 
+# hard to compress nicely...or it is just that bad
+graph.nodes[2293]['con_distri'] = 2
+graph.nodes[2349]['con_distri']  = 4
+
+#equal_split_score(init)
+#graph.nodes[2293]['con_distri'] = 4
+#graph.nodes[2349]['con_distri'] = 4
+(eff, wins, part) = run_simple2(graph)
+
 
 #
 #if __name__ == "__main__":
