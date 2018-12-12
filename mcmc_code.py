@@ -183,17 +183,19 @@ def compute_countySplitWeight(partition, info, county_split_name = 'county_split
         raise Exception("FInal weight should be less than 0")
     return(final_score)
 
-def plot_state(partition):
+def plot_state(partition, show_node_boundaries = False):
     plt.figure()
     ax = plt.axes()
     b = (float('inf'), float('inf'), float('-inf'), float('-inf'))
-
+    lw = 0
+    if(show_node_boundaries):
+        lw = None
     colors = get_spaced_colors(len(partition.parts))
     nodes = partition.graph.nodes
     for n in nodes:
         data = partition.graph.nodes[n]
         poly = data['geometry']
-        patch = PolygonPatch(poly, facecolor = colors[int(partition.assignment[n]) - 1])
+        patch = PolygonPatch(poly, linewidth = lw, facecolor = colors[int(partition.assignment[n]) - 1])
         ax.add_patch(patch)
         b= get_bounds(poly,b )
 
@@ -238,12 +240,13 @@ def get_bounds(d, orig):
     maxy = max(bounds[3], maxy)
     return(minx, miny, maxx, maxy)
 
-def run_simple(graph, num_samples = 80000):
+def run_simple(graph, num_samples = 80000, get_parts = 5):
     election = Election(
         "2014 Senate",
         {"Democratic": "sen_blue", "Republican": "sen_red"},
         alias="2014_Senate"
     )
+    
     
     
     initial_partition = Partition(
@@ -291,23 +294,29 @@ def run_simple(graph, num_samples = 80000):
         initial_state=initial_partition,
         total_steps= num_samples * 100,
     )
+    # going to show 5 partitions from this sample
+    part_con = max(1, num_samples / get_parts)
+    
     efficiency_gaps = []
     wins = []
     voting_percents = []
-
+    sample_parts = []
     tbefore = time.time()
     for partition in chain:
         if(hasattr(partition, 'accepted') and partition.accepted):
             efficiency_gaps.append(gerrychain.scores.efficiency_gap(partition["2014_Senate"]))
             wins.append(partition["2014_Senate"].wins("Democratic"))
             voting_percents.append(partition["2014_Senate"].percents("Democratic"))
-            if(len(wins) > num_samples):
+            num_s = len(wins)
+            if(num_s % part_con) == 0:
+                sample_parts.append(partition)
+            if(num_s> num_samples):
                 break
-            if(len(wins) % 1000 == 0):
+            if(num_s % 1000 == 0):
                 tnext = time.time()
                 print("It took %i time to get 1000 samples" % (tnext - tbefore))
                 tbefore = time.time()
-    return(efficiency_gaps, wins, voting_percents, partition)
+    return(efficiency_gaps, wins, voting_percents, sample_parts)
     
 def rep_index(win_percents):
     '''Takes in the demoncratic win_percents. Does a linear fit'''
