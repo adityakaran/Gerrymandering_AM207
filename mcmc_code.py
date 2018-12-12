@@ -300,13 +300,48 @@ def run_simple(graph, num_samples = 80000):
         if(hasattr(partition, 'accepted') and partition.accepted):
             efficiency_gaps.append(gerrychain.scores.efficiency_gap(partition["2014_Senate"]))
             wins.append(partition["2014_Senate"].wins("Democratic"))
+            voting_percents.append(partition["2014_Senate"].percents("Democratic"))
             if(len(wins) > num_samples):
                 break
             if(len(wins) % 1000 == 0):
                 tnext = time.time()
                 print("It took %i time to get 1000 samples" % (tnext - tbefore))
                 tbefore = time.time()
-    return(efficiency_gaps, wins, partition)
+    return(efficiency_gaps, wins, voting_percents, partition)
+    
+def rep_index(win_percents):
+    '''Takes in the demoncratic win_percents. Does a linear fit'''
+    a = np.array(win_percents)
+    a.sort()
+    least_rep = 1 - a[np.argmax(a > 0.5)]
+    least_dem = a[np.argmin(a < 0.5) + 1]
+    num_win = len(a) - np.argmax(a > 0.5)
+    delta = (50 - (100 - least_dem ))/(least_rep - (100 - least_dem))
+    score = num_win + delta
+    return(score)
+
+def gerrymandering_index(average_sample, each_sample):
+    a = np.array(average_sample)
+    b = np.array(each_sample)
+    a.sort()
+    b.sort()
+    return(np.linalg.norm(a - b))
+
+def avg_sample(win_percents_arr):
+    order = {}
+    for i in range(1, 1 + len(win_percents_arr[0])):
+        order[i] = 0
+    for j in range(len(win_percents_arr)):
+        elem = list(win_percents_arr[j])
+        elem.sort()
+        for s in range(len(elem)):
+            order[s + 1] += elem[s]
+    for i in range(1, 1 + len(win_percents_arr[0])):
+        order[i] *= 1/len(win_percents_arr)
+    fin = list(order.values())
+    fin.sort(reverse = True)
+    return(fin)
+
 
 #graph = generate_graph(os.path.join("test_file", "test_file.shp"))
 #print(graph.nodes[2293]['2016_CD'] )
