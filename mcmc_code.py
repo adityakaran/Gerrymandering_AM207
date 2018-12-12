@@ -240,14 +240,13 @@ def get_bounds(d, orig):
     maxy = max(bounds[3], maxy)
     return(minx, miny, maxx, maxy)
 
-def run_simple(graph, num_samples = 80000, get_parts = 5):
+#Defaults from paper
+def run_simple(graph, num_samples = 80000, wp = 3000, wi = 2.5, wc = 0.4, wm = 800, get_parts = 5):
     election = Election(
         "2014 Senate",
         {"Democratic": "sen_blue", "Republican": "sen_red"},
         alias="2014_Senate"
     )
-    
-    
     
     initial_partition = Partition(
             graph,
@@ -274,10 +273,6 @@ def run_simple(graph, num_samples = 80000, get_parts = 5):
 
     districts_within_tolerance_2 = lambda part : districts_within_tolerance(part, 'population', 0.12)
     is_valid = Validator([single_flip_contiguous, districts_within_tolerance_2, vra_validator ])
-    wp = 3000
-    wi = 2.5
-    wc = 0.4
-    wm = 800
     def accept(partition, counter):
         if(counter < 40000):
             beta = 0
